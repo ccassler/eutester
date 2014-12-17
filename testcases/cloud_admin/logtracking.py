@@ -64,7 +64,7 @@ class LogTracking(EutesterTestCase):
             self.managed_network = True
             self.tester.run_image(**self.run_instance_params)
             instanceid = self.tester.get_instances("running")
-            requestid = machine.sys("source /root/eucarc && /root/logtrackers/euca-req-history eucalyptus -l30 | grep RunInstance | grep RunInstance | awk '{ print $8 }'")
+            requestid = machine.sys("source /root/eucarc && /root/logtrackers/euca-req-history eucalyptus -l30 | grep RunInstance | grep RunInstance | awk '{ print $9 }'")
             instanceid = str(instanceid).translate(string.maketrans('', ''), "[']")
             instanceid = str(instanceid).replace('Instance:', '')
             requestid = str(requestid).translate(string.maketrans('', ''), "[']")
@@ -72,10 +72,18 @@ class LogTracking(EutesterTestCase):
             logcheck = str(logcheck).translate(string.maketrans('', ''), "[']")
             trackcheck = machine.sys("source /root/eucarc && /root/logtrackers/euca-req-track --ssh " + requestid + " | grep -v == | grep -v LOG | grep -v info: | wc -l")
             trackcheck = str(trackcheck).translate(string.maketrans('', ''), "[']")
-            print "Instance: " + instanceid
-            print "RequestID: " + requestid
-            print "Logcheck: " + logcheck
-            print "TrackCheck: " + trackcheck
+            if not instanceid:
+                raise Exception("Instance not found: " + instanceid + " Test FAILED!")
+            if not requestid:
+                raise Exception("RequestID not found: " + requestid + " Test FAILED!")
+            if logcheck == 0:
+                raise Exception("RequestID, InstanceID " + requestid + " and " + instanceid + " were not found.  Test FAILED!")
+            if trackcheck == 0:
+                raise Exception("RequestID " + requestid + " not found using euca-req-track.  Test FAILED!")
+#            print "Instance: " + instanceid
+#            print "RequestID: " + requestid
+#            print "Logcheck: " + logcheck
+#            print "TrackCheck: " + trackcheck
 
 
 if __name__ == "__main__":
