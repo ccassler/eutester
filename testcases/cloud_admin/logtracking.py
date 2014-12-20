@@ -10,7 +10,7 @@ import string
 
 
 class LogTracking(EutesterTestCase):
-    def __init__(self):
+    def __init__(self, emi=None):
         self.setuptestcase()
         self.setup_parser()
         self.get_args()
@@ -23,64 +23,65 @@ class LogTracking(EutesterTestCase):
                                   password=self.args.password,
                                   credpath=self.args.credpath)
         self.instance_timeout = 600
+        #tester = Eucaops(credpath="/home/ccassler/.euca")
+        self.group = self.tester.add_group(group_name="group-" + str(time.time()))
+        self.tester.authorize_group_by_name(group_name=self.group.name)
+        self.tester.authorize_group_by_name(group_name=self.group.name, port=-1, protocol="icmp")
+        ### Generate a keypair for the instance
+        self.keypair = self.tester.add_keypair("keypair-" + str(time.time()))
+        self.keypath = '%s/%s.pem' % (os.curdir, self.keypair.name)
+        if emi:
+            self.image = self.tester.get_emi(emi=self.args.emi)
+        else:
+            self.image = self.tester.get_emi(root_device_type="instance-store", basic_image=True)
+        self.address = None
+        self.volume = None
+        self.private_addressing = False
+        if not self.args.zone:
+            zones = self.tester.ec2.get_all_zones()
+            self.zone = random.choice(zones).name
+        else:
+            self.zone = self.args.zone
+        self.reservation = None
+        self.reservation_lock = threading.Lock()
+        self.run_instance_params = {'image': self.image,
+                                    'user_data': self.args.user_data,
+                                    'username': self.args.instance_user,
+                                    'keypair': self.keypair.name,
+                                    'group': self.group.name,
+                                    'zone': self.zone,
+                                    'return_reservation': True,
+                                    'timeout': self.instance_timeout}
+        self.managed_network = True
+        self.instance = self.tester.run_image(**self.run_instance_params)
+        self.instanceid = str(self.instance.instances)
+        self.instanceid = self.instanceid.translate(string.maketrans('', ''), "[']")
+        self.instanceid = self.instanceid.replace('Instance:', '')
+
 
     def clean_method(self):
         self.tester.cleanup_artifacts()
 
-    def MyTest(self, emi=None):
+    def Functional(self):
         """
         Test features of the Log Tracking feature
         """
         for machine in self.tester.get_component_machines("clc"):
-            #tester = Eucaops(credpath="/home/ccassler/.euca")
-            self.group = self.tester.add_group(group_name="group-" + str(time.time()))
-            self.tester.authorize_group_by_name(group_name=self.group.name)
-            self.tester.authorize_group_by_name(group_name=self.group.name, port=-1, protocol="icmp")
-            ### Generate a keypair for the instance
-            self.keypair = self.tester.add_keypair("keypair-" + str(time.time()))
-            self.keypath = '%s/%s.pem' % (os.curdir, self.keypair.name)
-            if emi:
-                self.image = self.tester.get_emi(emi=self.args.emi)
-            else:
-                self.image = self.tester.get_emi(root_device_type="instance-store", basic_image=True)
-            self.address = None
-            self.volume = None
-            self.private_addressing = False
-            if not self.args.zone:
-                zones = self.tester.ec2.get_all_zones()
-                self.zone = random.choice(zones).name
-            else:
-                self.zone = self.args.zone
-            self.reservation = None
-            self.reservation_lock = threading.Lock()
-            self.run_instance_params = {'image': self.image,
-                                        'user_data': self.args.user_data,
-                                        'username': self.args.instance_user,
-                                        'keypair': self.keypair.name,
-                                        'group': self.group.name,
-                                        'zone': self.zone,
-                                        'return_reservation': True,
-                                        'timeout': self.instance_timeout}
-            self.managed_network = True
-            self.tester.run_image(**self.run_instance_params)
-            instanceid = self.tester.get_instances("running")
-            requestid = machine.sys("source /root/eucarc && /root/logtrackers/euca-req-history eucalyptus -l30 | grep RunInstance | grep RunInstance | awk '{ print $9 }'")
-            instanceid = str(instanceid).translate(string.maketrans('', ''), "[']")
-            instanceid = str(instanceid).replace('Instance:', '')
+            requestid = machine.sys("source /root/eucarc && /root/logtracker/euca-req-history eucalyptus -l30 | grep RunInstance | awk '{ print $9 }'")
             requestid = str(requestid).translate(string.maketrans('', ''), "[']")
-            logcheck = machine.sys("grep " + requestid + " /var/log/eucalyptus/*tracking.log | grep -c " + instanceid)
+            logcheck = machine.sys("grep " + requestid + " /var/log/eucalyptus/*tracking.log | grep -c " + self.instanceid)
             logcheck = str(logcheck).translate(string.maketrans('', ''), "[']")
-            trackcheck = machine.sys("source /root/eucarc && /root/logtrackers/euca-req-track --ssh " + requestid + " | grep -v == | grep -v LOG | grep -v info: | wc -l")
+            trackcheck = machine.sys("source /root/eucarc && /root/logtracker/euca-req-track --ssh " + requestid + " | grep -v == | grep -v LOG | grep -v info: | wc -l")
             trackcheck = str(trackcheck).translate(string.maketrans('', ''), "[']")
-            if not instanceid:
-                raise Exception("Instance not found: " + instanceid + " Test FAILED!")
+            if not self.instanceid:
+                raise Exception("Instance not found: " + self.instanceid + " Test FAILED!")
             if not requestid:
-                raise Exception("RequestID not found: " + requestid + " Test FAILED!")
+                raise Exception("RequestID not found using euca-req-history: " + requestid + " Test FAILED!")
             if logcheck == 0:
-                raise Exception("RequestID, InstanceID " + requestid + " and " + instanceid + " were not found.  Test FAILED!")
+                raise Exception("RequestID, InstanceID " + requestid + " and " + self.instanceid + " were not found in tracking log files.  Test FAILED!")
             if trackcheck == 0:
                 raise Exception("RequestID " + requestid + " not found using euca-req-track.  Test FAILED!")
-#            print "Instance: " + instanceid
+#            print "Instance: " + self.instanceid
 #            print "RequestID: " + requestid
 #            print "Logcheck: " + logcheck
 #            print "TrackCheck: " + trackcheck
@@ -90,7 +91,7 @@ if __name__ == "__main__":
     testcase = LogTracking()
     ### Use the list of tests passed from config/command line to determine what subset of tests to run
     ### or use a predefined list
-    list = testcase.args.tests or ["MyTest"]
+    list = testcase.args.tests or ["Functional"]
 
     ### Convert test suite methods to EutesterUnitTest objects
     unit_list = [ ]
