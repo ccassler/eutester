@@ -81,10 +81,10 @@ class LogTracking(EutesterTestCase):
                 raise Exception("RequestID, InstanceID " + requestid + " and " + self.instanceid + " were not found in tracking log files.  Test FAILED!")
             if trackcheck == 0:
                 raise Exception("RequestID " + requestid + " not found using euca-req-track.  Test FAILED!")
-#            print "Instance: " + self.instanceid
-#            print "RequestID: " + requestid
-#            print "Logcheck: " + logcheck
-#            print "TrackCheck: " + trackcheck
+            print "Instance: " + self.instanceid
+            print "RequestID: " + requestid
+            print "Logcheck: " + logcheck
+            print "TrackCheck: " + trackcheck
 
 
 if __name__ == "__main__":
