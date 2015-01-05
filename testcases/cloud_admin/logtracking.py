@@ -8,7 +8,6 @@ import os
 import random
 import string
 
-
 class LogTracking(EutesterTestCase):
     def __init__(self, emi=None):
         self.setuptestcase()
@@ -23,7 +22,6 @@ class LogTracking(EutesterTestCase):
                                   password=self.args.password,
                                   credpath=self.args.credpath)
         self.instance_timeout = 600
-        #tester = Eucaops(credpath="/home/ccassler/.euca")
         self.group = self.tester.add_group(group_name="group-" + str(time.time()))
         self.tester.authorize_group_by_name(group_name=self.group.name)
         self.tester.authorize_group_by_name(group_name=self.group.name, port=-1, protocol="icmp")
@@ -66,12 +64,16 @@ class LogTracking(EutesterTestCase):
         """
         Test features of the Log Tracking feature
         """
+        reqhistory="/usr/bin/euca-req-history"
+        reqtrack="/usr/bin/euca-req-track"
         for machine in self.tester.get_component_machines("clc"):
-            requestid = machine.sys("source /root/eucarc && /root/logtracker/euca-req-history eucalyptus -l30 | grep RunInstance | awk '{ print $9 }'")
+            machine.sys("wget https://raw.githubusercontent.com/eucalyptus/logtrackers/master/euca-req-history -O " + reqhistory + " && chmod 755 " + reqhistory)
+            machine.sys("wget https://raw.githubusercontent.com/eucalyptus/logtrackers/master/euca-req-track -O " + reqtrack + " && chmod 755 " + reqtrack)
+            requestid = machine.sys("source /root/eucarc && " + reqhistory + " eucalyptus -l30 | grep RunInstance | awk '{ print $9 }'")
             requestid = str(requestid).translate(string.maketrans('', ''), "[']")
             logcheck = machine.sys("grep " + requestid + " /var/log/eucalyptus/*tracking.log | grep -c " + self.instanceid)
             logcheck = str(logcheck).translate(string.maketrans('', ''), "[']")
-            trackcheck = machine.sys("source /root/eucarc && /root/logtracker/euca-req-track --ssh " + requestid + " | grep -v == | grep -v LOG | grep -v info: | wc -l")
+            trackcheck = machine.sys("source /root/eucarc && " + reqtrack + " --ssh " + requestid + " | grep -v == | grep -v LOG | grep -v info: | wc -l")
             trackcheck = str(trackcheck).translate(string.maketrans('', ''), "[']")
             if not self.instanceid:
                 raise Exception("Instance not found: " + self.instanceid + " Test FAILED!")
@@ -81,10 +83,6 @@ class LogTracking(EutesterTestCase):
                 raise Exception("RequestID, InstanceID " + requestid + " and " + self.instanceid + " were not found in tracking log files.  Test FAILED!")
             if trackcheck == 0:
                 raise Exception("RequestID " + requestid + " not found using euca-req-track.  Test FAILED!")
-#            print "Instance: " + self.instanceid
-#            print "RequestID: " + requestid
-#            print "Logcheck: " + logcheck
-#            print "TrackCheck: " + trackcheck
 
 
 if __name__ == "__main__":
