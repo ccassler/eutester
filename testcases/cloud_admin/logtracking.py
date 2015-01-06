@@ -62,7 +62,7 @@ class LogTracking(EutesterTestCase):
 
     def Functional(self):
         """
-        Test features of the Log Tracking feature
+        Test functionality of the Log Tracking feature
         """
         reqhistory="/usr/bin/euca-req-history"
         reqtrack="/usr/bin/euca-req-track"
