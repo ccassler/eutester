@@ -64,11 +64,17 @@ class LogTracking(EutesterTestCase):
         """
         Test functionality of the Log Tracking feature
         """
-        reqhistory="/usr/bin/euca-req-history"
-        reqtrack="/usr/bin/euca-req-track"
+        reqhistory = "/usr/bin/euca-req-history"
+        reqtrack = "/usr/bin/euca-req-track"
         for machine in self.tester.get_component_machines("clc"):
             machine.sys("wget https://raw.githubusercontent.com/eucalyptus/logtrackers/master/euca-req-history -O " + reqhistory + " && chmod 755 " + reqhistory)
             machine.sys("wget https://raw.githubusercontent.com/eucalyptus/logtrackers/master/euca-req-track -O " + reqtrack + " && chmod 755 " + reqtrack)
+            check_history_command = machine.sys(reqhistory + " 2>&1 > /dev/null | wc -l")
+            check_track_command = machine.sys(reqtrack + " 2>&1 > /dev/null | wc -l")
+            if int(check_history_command[0]) > 0:
+                raise Exception("Log tracking command: " + reqhistory + " not found or not working properly.  TEST FAILED!")
+            if int(check_track_command[0]) > 0:
+                raise Exception("Log tracking command: " + reqtrack + " not found or not working properly.  TEST FAILED!")
             requestid = machine.sys("source /root/eucarc && " + reqhistory + " eucalyptus -l30 | grep RunInstance | awk '{ print $9 }'")
             requestid = str(requestid).translate(string.maketrans('', ''), "[']")
             logcheck = machine.sys("grep " + requestid + " /var/log/eucalyptus/*tracking.log | grep -c " + self.instanceid)
