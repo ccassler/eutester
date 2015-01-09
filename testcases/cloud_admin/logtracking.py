@@ -52,8 +52,8 @@ class LogTracking(EutesterTestCase):
                                     'timeout': self.instance_timeout}
         self.managed_network = True
         self.instance = self.tester.run_image(**self.run_instance_params)
-        self.instanceid = str(self.instance.instances)
-        self.instanceid = self.instanceid.translate(string.maketrans('', ''), "[']")
+        self.instanceid = self.instance.instances
+        self.instanceid = str(self.instanceid[0])
         self.instanceid = self.instanceid.replace('Instance:', '')
 
 
@@ -75,12 +75,12 @@ class LogTracking(EutesterTestCase):
                 raise Exception("Log tracking command: " + reqhistory + " not found or not working properly.  TEST FAILED!")
             if int(check_track_command[0]) > 0:
                 raise Exception("Log tracking command: " + reqtrack + " not found or not working properly.  TEST FAILED!")
-            requestid = machine.sys("source /root/eucarc && " + reqhistory + " eucalyptus -l30 | grep RunInstance | awk '{ print $9 }'")
-            requestid = str(requestid).translate(string.maketrans('', ''), "[']")
+            requestid = machine.sys("source /root/eucarc && " + reqhistory + " eucalyptus -n RunInstance | grep -v DATE | grep -v \- | head -1 | awk '{ print $9 }'")
+            requestid = str(requestid[0])
             logcheck = machine.sys("grep " + requestid + " /var/log/eucalyptus/*tracking.log | grep -c " + self.instanceid)
-            logcheck = str(logcheck).translate(string.maketrans('', ''), "[']")
+            logcheck = int(logcheck[0])
             trackcheck = machine.sys("source /root/eucarc && " + reqtrack + " --ssh " + requestid + " | grep -v == | grep -v LOG | grep -v info: | wc -l")
-            trackcheck = str(trackcheck).translate(string.maketrans('', ''), "[']")
+            trackcheck = int(trackcheck[0])
             if not self.instanceid:
                 raise Exception("Instance not found: " + self.instanceid + " Test FAILED!")
             if not requestid:
@@ -89,6 +89,10 @@ class LogTracking(EutesterTestCase):
                 raise Exception("RequestID, InstanceID " + requestid + " and " + self.instanceid + " were not found in tracking log files.  Test FAILED!")
             if trackcheck == 0:
                 raise Exception("RequestID " + requestid + " not found using euca-req-track.  Test FAILED!")
+            print "instanceid: " + self.instanceid
+            print "requestid: " + requestid
+            print "logcheck: " + str(logcheck)
+            print "trackcheck: " + str(trackcheck)
 
 
 if __name__ == "__main__":
